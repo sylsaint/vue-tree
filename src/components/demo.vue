@@ -1,5 +1,11 @@
 <template>
-  <vue-tree :root="options"></vue-tree> 
+  <div>
+    <vue-tree :root="options"></vue-tree> 
+    <div>
+      <input type="button" value="增加节点" @click="addNode">
+      <input type="button" value="删除节点" @click="delNode">
+    </div>
+  </div>
 </template>
 
 <script>
@@ -20,6 +26,14 @@ export default {
           }
         ]
       }
+    }
+  },
+  methods: {
+    addNode () {
+      this.options.children.push({name: Math.random() * 100})
+    },
+    delNode () {
+      this.options.children.splice(this.options.children.length - 1, 1)
     }
   },
   created () {

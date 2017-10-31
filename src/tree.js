@@ -1,5 +1,7 @@
+import _ from 'lodash'
 import Node from './node'
 import ContextMenu from './conextmenu'
+import {editDistance} from './levenshtein'
 
 class Tree {
   constructor (root) {
@@ -10,9 +12,9 @@ class Tree {
     this.build()
     this.use(ContextMenu)
   }
-  build () {
-    this._root = new Node(this._ref)
-    this._stack.push(this._root)
+  _build (root) {
+    let _root = new Node(root)
+    this._stack.push(_root)
     while (this._stack.length) {
       const node = this._stack.pop()
       this._nodes.push(node)
@@ -26,7 +28,14 @@ class Tree {
         }
       }
     }
-    return this
+    return _root
+  }
+  build () {
+    this._root = this._build(this._ref)
+  }
+  rebuild () {
+    this._nodes = []
+    this.build()
   }
   root () {
     return this._root
@@ -68,9 +77,9 @@ class Tree {
       this.addNode(parentId, option)
     })
   }
-  delNode (nodeId) {
-    const node = this.find('_id', nodeId)
-    const r = node.getParent().delChild(nodeId) ? this._nodes.splice(this.index(nodeId)) : 'Deleting node failed'
+  delNode (node) {
+    console.log(node)
+    const r = node.getParent().delChild(node.id()) ? this._nodes.splice(this.index(node.id())) : 'Deleting node failed'
     return r
   }
   addNodeProperties (name, defaultValue, stats, icons) {
@@ -80,7 +89,79 @@ class Tree {
       item.set(name + '_icons', icons)
     })
   }
-  update (options) {
+  addNodes (nodeId, nodeArray) {
+    const [refNode] = this.find('_id', nodeId)
+    if (_.isArray(nodeArray) && nodeArray.length) {
+      for (let i = 0; i < nodeArray.length; i++) {
+        refNode.addChild(new Node(nodeArray[i]))
+      }
+    } else if (_.isObject(nodeArray)) {
+      refNode.addChild(new Node(nodeArray))
+    } else {
+      console.log(nodeArray, 'invalid, should be array/object')
+    }
+    return refNode
+  }
+  update (root) {
+    console.log(this._root, root)
+    let nodeQueue = []
+    let delQueue = []
+    let insQueue = []
+    let left = []
+    let right = []
+    nodeQueue.push({left: this._root, right: root})
+    while (nodeQueue.length) {
+      let parent = nodeQueue.shift()
+      console.log(parent.left, parent.right)
+      left = parent.left.children
+      right = parent.right.children
+      if (this._bad(right)) {
+        right = []
+      }
+      const r = editDistance(left, right, this.costFunc)
+      for (let i = 0; i < r.DEL.length; i++) {
+        delQueue.push({node: left[r.DEL[i]], parent: parent.left})
+      }
+      for (let i = 0; i < r.INS.length; i++) {
+        insQueue.push({data: right[r.INS[i]], parent: parent.left})
+      }
+      for (let i = 0; i < r.SUB.length; i++) {
+        insQueue.push({data: right[r.SUB[i][1]], parent: parent.left})
+        delQueue.push({node: left[r.SUB[i][0]], parent: parent.left})
+      }
+      for (let i = 0; i < r.SAME.length; i++) {
+        nodeQueue.push({left: left[r.SAME[i][0]], right: right[r.SAME[i][1]]})
+      }
+      console.log(nodeQueue.length)
+    }
+    this._add(insQueue)
+    this._del(delQueue)
+  }
+  _bad (a) {
+    if (!a) {
+      return true
+    }
+    return false
+  }
+  costFunc (a, b) {
+    if (a.ref().name === b.name) {
+      return 0
+    }
+    return 1
+  }
+  _del (delQueue) {
+    while (delQueue.length) {
+      const info = delQueue.shift()
+      this.delNode(info.node)
+    }
+    delQueue = []
+  }
+  _add (insQueue) {
+    while (insQueue.length) {
+      const info = insQueue.shift()
+      const node = this._build(info.data)
+      info.parent.addChild(node)
+    }
   }
   unSelectAll () {
     this.nodes().map(node => {

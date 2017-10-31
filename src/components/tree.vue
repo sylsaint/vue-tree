@@ -19,10 +19,6 @@ export default {
     root: {
       type: Object,
       default: {}
-    },
-    options: {
-      type: Object,
-      default: {}
     }
   },
   data () {
@@ -43,6 +39,7 @@ export default {
       deep: true,
       handler () {
         this.tree.update(this.root)
+        this.rootNode = this.tree.root()
       }
     }
   },
